@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
+import { effects } from './video';
 
 import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
 import Peer from 'peerjs';
@@ -50,10 +51,8 @@ export const App = () => {
 
   const UseFilter = async (elem) => {
     ffmpeg.FS('writeFile', 'test.mp4', await fetchFile(video));
-    console.log('filter usage', video)
-    console.log(time_, "time1")
 
-    const args = effects[elem];
+    const args = effects(time)[elem];
     setFilter(elem);
     await ffmpeg.run(...args);
     setMessage('Complete transcoding');
@@ -67,7 +66,7 @@ export const App = () => {
   useEffect(() => {
     load();
 
-    const peer = new Peer('',{
+    const peer = new Peer('', {
       host: 'localhost',
       port: '9000',
       path: '/myapp',
@@ -79,18 +78,20 @@ export const App = () => {
     });
 
     peer.on('connection', (conn) => {
-      conn.on('error', (error) =>{
-        console.log('Error', error)
+      conn.on('error', (error) => {
       })
 
       conn.on('data', (data) => {
-        console.log('Received data')
-        if (typeof data === 'string') {
-          console.log('Received filter', data);
-          setFilter(data)
+        if (typeof data[0] === 'string') {
+          if (data[1]) {
+            setTime([new Date(data[1]), new Date(data[2])]);
+            setFilter(data[0])
+          }
+          else {
+            setFilter(data)
+          }
         }
         else {
-          console.log('Received blob', data);
           const blob = new Blob([data.file], { type: data.filetype });
           const url = URL.createObjectURL(blob);
           setVideo(url)
@@ -99,7 +100,7 @@ export const App = () => {
     });
   }, []);
 
-  useEffect (() => {
+  useEffect(() => {
     if (initialRender.current) {
       initialRender.current = false;
     } else {
@@ -108,11 +109,11 @@ export const App = () => {
   }, [filter]);
 
 
-  const send = (filter) => {
+  const send = (filter, ...args) => {
     const conn = peerI.connect(friendId);
 
     conn.on('open', () => {
-      conn.send(filter);
+      conn.send([filter, ...args]);
     });
 
   };
@@ -120,7 +121,6 @@ export const App = () => {
   const sendFile = (event) => {
     const conn = peerI.connect(friendId);
 
-    console.log('Sent', event.target.files[0]);
     const file = event.target.files[0];
     const blob = new Blob([event.target.files[0]], { type: file.type });
 
@@ -133,20 +133,19 @@ export const App = () => {
     });
   }
 
-  const timeline = () => {
+  const timeline = (time) => {
     return <TimeRange
       onChangeCallback={(timelineInterval) => {
         setTime([timelineInterval[0], timelineInterval[1]]);
       }}
       step={100}
       ticksNumber={6}
-      selectedInterval={time_}
-      timelineInterval={time_}
+      selectedInterval={time}
+      timelineInterval={time}
       onUpdateCallback={(error) => setError(error)}
       formatTick={(ms) => format(new Date(ms), 'mm:ss')}
     />
   }
-
   const Filters = () => {
     return <div className='filters'>
       <h2>Filters</h2>
@@ -171,64 +170,54 @@ export const App = () => {
       <button onClick={() => {
         setMessage('Filter applying ...')
         setFilter('trim')
-        send('trim')
+        send('trim', time[0], time[1])
       }}>trim
       </button>
     </div>;
   };
 
-  const effects = {
-    sepia: ['-i', 'test.mp4', '-filter:v', '[0:v]colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131[colorchannelmixed];\n' +
-    '[colorchannelmixed]eq=1.0:0:1.3:2.4:1.0:1.0:1.0:1.0[color_effect]', 'output.mp4'],
-    grayscale: ['-i', 'test.mp4', '-vf', 'format=gray', 'output.mp4'],
-    black_white: ['-i', 'test.mp4', '-f', 'lavfi', '-i', 'color=gray', '-f', 'lavfi', '-i', 'color=black:s=576x1024', '-f', 'lavfi', '-i', 'color=white:s=576x1024', '-filter_complex', 'threshold', 'output.mp4'],
-    mute: ['-i', 'test.mp4', '-vcodec', 'copy', '-an', 'output.mp4'],
-    empty: ['-i', 'test.mp4', '-vcodec', 'copy', 'output.mp4'],
-    trim: ['-i', 'test.mp4', '-ss', format(time[0], 'mm:ss'), '-t', format(time[1], 'mm:ss'), '-async', '1', 'output.mp4'],
-  };
-
   return ready ? (
 
 
-      <div className="App">
+    <div className="App">
 
-        <div className='columnFirst'>
-          <form>
-            <input type="file" id='file' onChange={(e) => {
-              const url2 = URL.createObjectURL(e.target.files[0])
-              setVideo(url2);
-              sendFile(e);
-            }
-            } />
-            <label htmlFor='file'>Add file</label>
-          </form>
+      <div className='columnFirst'>
+        <form>
+          <input type="file" id='file' onChange={(e) => {
+            const url2 = URL.createObjectURL(e.target.files[0])
+            setVideo(url2);
+            sendFile(e);
+          }
+          } />
+          <label htmlFor='file'>Add file</label>
+        </form>
 
-          {Filters()}
-        </div>
-        <div className='columnSecond'>
-          <h1>My ID: {myId}</h1>
-          <label>Friend ID:</label>
-          <input
-            type="text"
-            value={friendId}
-            onChange={e => { setFriendId(e.target.value) }} />
-          <br />
-          <br />
-          {video && <video
-            controls
-            width="250"
-            src={video}
-            id='video'
-          >
+        {Filters()}
+      </div>
+      <div className='columnSecond'>
+        <h1>My ID: {myId}</h1>
+        <label>Friend ID:</label>
+        <input
+          type="text"
+          value={friendId}
+          onChange={e => { setFriendId(e.target.value) }} />
+        <br />
+        <br />
+        {video && <video
+          controls
+          width="250"
+          src={video}
+          id='video'
+        >
 
-          </video>}
-          {duration ? timeline() : undefined}
-          <p>{message}</p>
-        </div>
-
+        </video>}
+        {duration ? timeline(time_) : undefined}
+        <p>{message}</p>
       </div>
 
-    )
+    </div>
+
+  )
     :
     (
       <p>Loading...</p>
