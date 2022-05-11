@@ -6,8 +6,8 @@ import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
 import Peer from 'peerjs';
 import TimeRange from 'react-timeline-range-slider';
 import { format } from 'date-fns';
+import { Button, ButtonGroup, TextField, CircularProgress } from '@mui/material'
 
-let duration = 0;
 let time_ = [new Date(0), new Date(0)];
 const ffmpeg = createFFmpeg({
   logger: (message) => {
@@ -18,7 +18,7 @@ const ffmpeg = createFFmpeg({
       const m = Number(matches[2]);
       const s = Number(matches[3]);
       const ms = Number(matches[4]);
-      duration = h * 3600 + m * 60 + s + ms / 1000;
+      const duration = h * 3600 + m * 60 + s + ms / 1000;
       time_[1] = new Date(duration * 1000);
     }
   },
@@ -28,18 +28,14 @@ const ffmpeg = createFFmpeg({
 export const App = () => {
   const [ready, setReady] = useState(false);
   const [video, setVideo] = useState();
-  const [message, setMessage] = useState('Click Start to transcode');
-  const [time, setTime] = useState(time_);
-
-  // eslint-disable-next-line
-  const [filter, setFilter] = useState('empty');
-  // eslint-disable-next-line
+  const [message, setMessage] = useState();
+  const [time, setTime] = useState([new Date(), new Date()]);
+  const [filter, setFilter] = useState();
   const [error, setError] = useState();
 
   const [myId, setMyId] = useState('');
   const [friendId, setFriendId] = useState('');
   const [peerI, setPeerI] = useState({});
-
   const initialRender = useRef(true);
 
   const load = async () => {
@@ -51,6 +47,8 @@ export const App = () => {
 
   const UseFilter = async (elem) => {
     ffmpeg.FS('writeFile', 'test.mp4', await fetchFile(video));
+    console.log('run with filter ', filter)
+    console.log(time)
 
     const args = effects(time)[elem];
     setFilter(elem);
@@ -58,7 +56,6 @@ export const App = () => {
     setMessage('Complete transcoding');
     let data = await ffmpeg.FS('readFile', 'output.mp4');
 
-    // Create a URL
     let url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
     setVideo(url);
   };
@@ -83,18 +80,23 @@ export const App = () => {
 
       conn.on('data', (data) => {
         if (typeof data[0] === 'string') {
+          setMessage('Filter applying ...')
           if (data[1]) {
             setTime([new Date(data[1]), new Date(data[2])]);
             setFilter(data[0])
           }
           else {
+            setTime(time_)
             setFilter(data)
           }
         }
         else {
           const blob = new Blob([data.file], { type: data.filetype });
           const url = URL.createObjectURL(blob);
+          // console.log('receive')
           setVideo(url)
+          setTime(time_);
+          setFilter('empty')
         }
       });
     });
@@ -107,6 +109,14 @@ export const App = () => {
       UseFilter(filter);
     }
   }, [filter]);
+
+  // useEffect(() => {
+  //   if (initialRender.current) {
+  //     initialRender.current = false;
+  //     setTime(time_)
+  //     console.log('effect', time_)
+  //   }
+  // }, [time]);
 
 
   const send = (filter, ...args) => {
@@ -123,6 +133,7 @@ export const App = () => {
 
     const file = event.target.files[0];
     const blob = new Blob([event.target.files[0]], { type: file.type });
+    // console.log('send')
 
     conn.on('open', () => {
       conn.send({
@@ -147,79 +158,95 @@ export const App = () => {
     />
   }
   const Filters = () => {
-    return <div className='filters'>
+    return <ButtonGroup orientation='vertical' disableRipple>
       <h2>Filters</h2>
-      <button onClick={() => {
+      <Button onClick={() => {
         setMessage('Filter applying ...')
         setFilter('grayscale')
         send('grayscale')
       }}>Grayscale
-      </button>
-      <button onClick={() => {
+      </Button>
+      <Button onClick={() => {
         setMessage('Filter applying ...')
         setFilter('mute')
         send('mute')
       }}>Mute
-      </button>
-      <button onClick={() => {
+      </Button>
+      <Button onClick={() => {
         setMessage('Filter applying ...')
         setFilter('sepia')
         send('sepia')
       }}>Sepia
-      </button>
-      <button onClick={() => {
+      </Button>
+      <Button onClick={() => {
         setMessage('Filter applying ...')
         setFilter('trim')
         send('trim', time[0], time[1])
       }}>trim
-      </button>
-    </div>;
+      </Button>
+    </ButtonGroup>;
   };
+  const spinner = message !== 'Complete transcoding' ? <CircularProgress className='progress' /> : <></>;
 
-  return ready ? (
+  return ready && video ? (
 
 
     <div className="App">
 
       <div className='columnFirst'>
-        <form>
-          <input type="file" id='file' onChange={(e) => {
-            const url2 = URL.createObjectURL(e.target.files[0])
-            setVideo(url2);
-            sendFile(e);
-          }
-          } />
-          <label htmlFor='file'>Add file</label>
-        </form>
-
         {Filters()}
       </div>
       <div className='columnSecond'>
-        <h1>My ID: {myId}</h1>
-        <label>Friend ID:</label>
-        <input
-          type="text"
-          value={friendId}
-          onChange={e => { setFriendId(e.target.value) }} />
-        <br />
-        <br />
-        {video && <video
-          controls
-          width="250"
-          src={video}
-          id='video'
-        >
-
-        </video>}
-        {duration ? timeline(time_) : undefined}
-        <p>{message}</p>
+        <div className='videoField'>
+          {video && <video
+            controls
+            width="600"
+            height="400"
+            src={video}
+            id='video'
+          >
+          </video>}
+          {spinner}
+        </div>
+        {timeline(time_)}
       </div>
 
     </div>
 
   )
     :
-    (
-      <p>Loading...</p>
+    (<div className='startScreen'>
+      <div className='peerInfo'>
+        <h2>Establish peer connection</h2>
+        <h3>Your ID: {myId}</h3>
+        <TextField
+          type="text"
+          placeholder='Paste your friend id'
+          value={friendId}
+          onChange={e => { setFriendId(e.target.value) }}
+          variant="outlined"
+        />
+      </div>
+      <div className='description'>
+        <h2>P2P video editor</h2>
+        <p>Editor was implemented on base of FFMPEG.WASM</p>
+        <form>
+          <Button variant="contained" disableRipple>
+            <input type="file" id='file' onChange={(e) => {
+              const url2 = URL.createObjectURL(e.target.files[0])
+              sendFile(e);
+              setVideo(url2);
+              setTime(time_)
+              console.log(time_)
+              console.log(time)
+              setFilter('empty')
+
+            }
+            } />
+            Select video file
+          </Button>
+        </form>
+      </div>
+    </div>
     );
 }
