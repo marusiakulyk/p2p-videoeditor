@@ -22,9 +22,9 @@ h2 {
   text-align: center;
 }
 .react_time_range__time_range_container {
-  /* position: absolute; */
-  /* bottom: 8px; */
-  flex-grow: 0;
+  position: static;
+  padding-top: 50px !important;
+  bottom: 0;
 }
 .react_time_range__track {
   background-color: #1976d2 !important;
@@ -90,7 +90,9 @@ video::-webkit-media-controls-panel {
 }
 
 .videoField {
-  flex-grow: 1;
+  width: 600px;
+  height: 400px;
+  position: relative;
 }
 
 input[type='file'] {
