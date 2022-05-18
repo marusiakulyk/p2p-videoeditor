@@ -29,7 +29,7 @@ export const App = () => {
   const [ready, setReady] = useState(false);
   const [video, setVideo] = useState();
   const [message, setMessage] = useState();
-  const [time, setTime] = useState([new Date(), new Date()]);
+  const [time, setTime] = useState([new Date(0), new Date(0)]);
   const [filter, setFilter] = useState();
   const [error, setError] = useState();
 
@@ -58,6 +58,7 @@ export const App = () => {
 
     let url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
     setVideo(url);
+    setTime(time_)
   };
 
   useEffect(() => {
@@ -81,19 +82,17 @@ export const App = () => {
       conn.on('data', (data) => {
         if (typeof data[0] === 'string') {
           setMessage('Filter applying ...')
-          if (data[1]) {
+          if (data[0] === 'trim') {
             setTime([new Date(data[1]), new Date(data[2])]);
             setFilter(data[0])
           }
           else {
-            setTime(time_)
             setFilter(data)
           }
         }
         else {
           const blob = new Blob([data.file], { type: data.filetype });
           const url = URL.createObjectURL(blob);
-          // console.log('receive')
           setVideo(url)
           setTime(time_);
           setFilter('empty')
@@ -110,14 +109,6 @@ export const App = () => {
     }
   }, [filter]);
 
-  // useEffect(() => {
-  //   if (initialRender.current) {
-  //     initialRender.current = false;
-  //     setTime(time_)
-  //     console.log('effect', time_)
-  //   }
-  // }, [time]);
-
 
   const send = (filter, ...args) => {
     const conn = peerI.connect(friendId);
@@ -133,7 +124,6 @@ export const App = () => {
 
     const file = event.target.files[0];
     const blob = new Blob([event.target.files[0]], { type: file.type });
-    // console.log('send')
 
     conn.on('open', () => {
       conn.send({
@@ -236,11 +226,7 @@ export const App = () => {
               const url2 = URL.createObjectURL(e.target.files[0])
               sendFile(e);
               setVideo(url2);
-              setTime(time_)
-              console.log(time_)
-              console.log(time)
               setFilter('empty')
-
             }
             } />
             Select video file
