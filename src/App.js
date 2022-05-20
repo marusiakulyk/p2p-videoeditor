@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
-import { effects } from './video';
+import { effects, handleReceiveFilter } from './video';
 
 import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
 import Peer from 'peerjs';
@@ -9,17 +9,24 @@ import { format } from 'date-fns';
 import { Button, ButtonGroup, TextField, CircularProgress } from '@mui/material'
 
 let time_ = [new Date(0), new Date(0)];
+let dim = [0, 0];
 const ffmpeg = createFFmpeg({
   logger: (message) => {
-    const regex = /time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})/gm;
-    const matches = regex.exec(String(message.message));
-    if (matches != null) {
-      const h = Number(matches[1]);
-      const m = Number(matches[2]);
-      const s = Number(matches[3]);
-      const ms = Number(matches[4]);
+    const regexDur = /time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})/gm;
+    const matchesDur = regexDur.exec(String(message.message));
+    const regexDim = /([0-9]{2,})x([0-9]+)/gm
+    const matchesDim = regexDim.exec(String(message.message));
+    if (matchesDur != null) {
+      const h = Number(matchesDur[1]);
+      const m = Number(matchesDur[2]);
+      const s = Number(matchesDur[3]);
+      const ms = Number(matchesDur[4]);
       const duration = h * 3600 + m * 60 + s + ms / 1000;
       time_[1] = new Date(duration * 1000);
+    }
+
+    if (matchesDim != null) {
+      dim = [Number(matchesDim[1]), Number(matchesDim[2])];
     }
   },
   log: true,
@@ -30,7 +37,11 @@ export const App = () => {
   const [video, setVideo] = useState();
   const [message, setMessage] = useState();
   const [time, setTime] = useState([new Date(0), new Date(0)]);
+  const [dime, setDime] = useState([1000, 1000]);
+  const [leftCorner, setLeftCorner] = useState([0, 0])
   const [filter, setFilter] = useState();
+  const [res, setRes] = useState([1000, 1000]);
+  const [ext, setExt] = useState('mp4');
   const [error, setError] = useState();
 
   const [myId, setMyId] = useState('');
@@ -47,19 +58,30 @@ export const App = () => {
 
   const UseFilter = async (elem) => {
     ffmpeg.FS('writeFile', 'test.mp4', await fetchFile(video));
-    console.log('run with filter ', filter)
-    console.log(time)
+    console.log('filter', filter)
+    console.log('dime', dime)
 
-    const args = effects(time)[elem];
     setFilter(elem);
+    const args = effects(time, dime, leftCorner, res, ext)[elem];
     await ffmpeg.run(...args);
     setMessage('Complete transcoding');
-    let data = await ffmpeg.FS('readFile', 'output.mp4');
+    let data = await ffmpeg.FS('readFile', `output.${ext}`);
 
-    let url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+    const type = `video/${ext}`;
+    let url = URL.createObjectURL(new Blob([data.buffer], {type: type}));
     setVideo(url);
-    setTime(time_)
+    setTime(time_);
+    setDime(dim);
   };
+
+  const metadataCollect = async () => {
+    ffmpeg.FS('writeFile', 'test.mp4', await fetchFile(video));
+    await ffmpeg.run('-i', 'test.mp4', '-vcodec', 'copy', 'output.mp4');
+    setMessage('Complete transcoding');
+    setTime(time_);
+    setDime(dim);
+    setRes(dim);
+  }
 
   useEffect(() => {
     load();
@@ -77,26 +99,11 @@ export const App = () => {
 
     peer.on('connection', (conn) => {
       conn.on('error', (error) => {
+        setError(error);
       })
 
       conn.on('data', (data) => {
-        if (typeof data[0] === 'string') {
-          setMessage('Filter applying ...')
-          if (data[0] === 'trim') {
-            setTime([new Date(data[1]), new Date(data[2])]);
-            setFilter(data[0])
-          }
-          else {
-            setFilter(data)
-          }
-        }
-        else {
-          const blob = new Blob([data.file], { type: data.filetype });
-          const url = URL.createObjectURL(blob);
-          setVideo(url)
-          setTime(time_);
-          setFilter('empty')
-        }
+        handleReceiveFilter(setMessage, setTime, setFilter, setVideo, setDime, setLeftCorner, setRes, setExt, time_, data);
       });
     });
   }, []);
@@ -104,8 +111,14 @@ export const App = () => {
   useEffect(() => {
     if (initialRender.current) {
       initialRender.current = false;
-    } else {
-      UseFilter(filter);
+    }
+    else {
+      if (filter !== 'empty') {
+        UseFilter(filter)
+      }
+      else {
+        metadataCollect();
+      }
     }
   }, [filter]);
 
@@ -148,34 +161,113 @@ export const App = () => {
     />
   }
   const Filters = () => {
-    return <ButtonGroup orientation='vertical' disableRipple>
-      <h2>Filters</h2>
-      <Button onClick={() => {
-        setMessage('Filter applying ...')
-        setFilter('grayscale')
-        send('grayscale')
-      }}>Grayscale
-      </Button>
-      <Button onClick={() => {
-        setMessage('Filter applying ...')
-        setFilter('mute')
-        send('mute')
-      }}>Mute
-      </Button>
-      <Button onClick={() => {
-        setMessage('Filter applying ...')
-        setFilter('sepia')
-        send('sepia')
-      }}>Sepia
-      </Button>
-      <Button onClick={() => {
-        setMessage('Filter applying ...')
-        setFilter('trim')
-        send('trim', time[0], time[1])
-      }}>trim
-      </Button>
-    </ButtonGroup>;
+    return <div className='columnFilter'>
+      <ButtonGroup orientation='vertical' disableRipple fullWidth>
+        <h2>Filters</h2>
+        <Button onClick={() => {
+          setMessage('Filter applying ...')
+          setFilter('grayscale')
+          send('grayscale')
+        }}>Grayscale
+        </Button>
+        <Button onClick={() => {
+          setMessage('Filter applying ...')
+          setFilter('mute')
+          send('mute')
+        }}>Mute
+        </Button>
+        <Button onClick={() => {
+          setMessage('Filter applying ...')
+          setFilter('sepia')
+          send('sepia')
+        }}>Sepia
+        </Button>
+        <Button onClick={() => {
+          setMessage('Filter applying ...')
+          setFilter('black_white')
+          send('black_white')
+        }}>Black and White
+        </Button>
+      </ButtonGroup>
+
+      <ButtonGroup orientation='vertical' disableRipple fullWidth>
+        <h2>Sizes</h2>
+        <Button onClick={() => {
+          setMessage('Filter applying ...')
+          setFilter('trim')
+          send('trim', ...time)
+        }}>trim
+        </Button>
+        <Button onClick={() => {
+          setMessage('Filter applying ...')
+          setFilter('crop')
+          send('crop', ...dime, ...leftCorner)
+        }}>crop
+        </Button>
+        <div>
+          <TextField className={'smallInput'} placeholder='width' onChange={(e) => setDime([e.target.value, dime[1]])} />
+          <TextField className={'smallInput'} placeholder='height' onChange={(e) => setDime([dime[0], e.target.value])} />
+        </div>
+        <div>
+          <TextField className={'smallInput'} placeholder='corner x' onChange={(e) => setLeftCorner([e.target.value, dime[1]])} />
+          <TextField className={'smallInput'} placeholder='corner y' onChange={(e) => setLeftCorner([dime[0], e.target.value])} />
+        </div>
+      </ButtonGroup>
+    </div>
   };
+
+  const Resolutions = () => {
+    return <div  className='columnFilter'>
+      <ButtonGroup orientation='vertical' disableRipple fullWidth>
+        <h2>Resolutions</h2>
+        <Button onClick={() => {
+          setMessage('Filter applying ...')
+          setRes([720, 480])
+          setFilter('resolution')
+          send('resolution', ...res)
+        }}>480p
+        </Button>
+        <Button onClick={() => {
+          setMessage('Filter applying ...')
+          setRes([1280, 720])
+          setFilter('resolution')
+          send('resolution', ...res)
+        }}>720p
+        </Button>
+        <Button onClick={() => {
+          setMessage('Filter applying ...')
+          setRes([1920,1080])
+          setFilter('resolution')
+          send('resolution', ...res)
+        }}>1080p
+        </Button>
+      </ButtonGroup>
+      <ButtonGroup orientation='vertical' disableRipple fullWidth>
+        <h2>Extentions</h2>
+        <Button onClick={() => {
+          setMessage('Filter applying ...')
+          setExt('mkv')
+          setFilter('extention')
+          send('extention', 'mkv')
+        }}>mkv
+        </Button>
+        <Button onClick={() => {
+          setMessage('Filter applying ...')
+          setExt('mov')
+          setFilter('extention')
+          send('extention', 'mov')
+        }}>mov
+        </Button>        <Button onClick={() => {
+          setMessage('Filter applying ...')
+          setExt('mp4')
+          setFilter('extention')
+          send('extention', 'mp4')
+        }}>mp4
+        </Button>
+
+      </ButtonGroup>
+    </div>
+  }
   const spinner = message !== 'Complete transcoding' ? <CircularProgress className='progress' /> : <></>;
 
   return ready && video ? (
@@ -183,10 +275,8 @@ export const App = () => {
 
     <div className="App">
 
-      <div className='columnFirst'>
-        {Filters()}
-      </div>
-      <div className='columnSecond'>
+      {Filters()}
+      <div className='columnMain'>
         <div className='videoField'>
           {video && <video
             controls
@@ -200,6 +290,7 @@ export const App = () => {
         </div>
         {timeline(time_)}
       </div>
+      {Resolutions()}
 
     </div>
 
@@ -224,6 +315,7 @@ export const App = () => {
           <Button variant="contained" disableRipple>
             <input type="file" id='file' onChange={(e) => {
               const url2 = URL.createObjectURL(e.target.files[0])
+              console.log(dime, ' dimention')
               sendFile(e);
               setVideo(url2);
               setFilter('empty')
