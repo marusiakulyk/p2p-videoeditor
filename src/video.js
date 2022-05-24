@@ -12,12 +12,11 @@ export const effects = (time, dime, leftCorner, res, ext) => {
         empty: ['-i', 'test.mp4', '-vcodec', 'copy', 'output.mp4'],
         trim: ['-i', 'test.mp4', '-ss', format(time[0], 'mm:ss'), '-t', format(time[1], 'mm:ss'), '-async', '1', 'output.mp4'],
         crop: ['-i', 'test.mp4', '-filter:v', `crop=${dime[0]}:${dime[1]}:${leftCorner[0]}:${leftCorner[1]}`, 'output.mp4'],
-        extention: ['-i', 'test.mp4', '-vcodec', 'copy', `output.${ext}`],
         resolution: ['-i', 'test.mp4', '-vf', `scale=${res[0]}:${res[1]}`, 'output.mp4']
     }
 };
 
-export const handleReceiveFilter = (setMessage, setTime, setFilter, setVideo, setDime, setLeftCorner, setRes, setExt, time_, data) => {
+export const handleReceiveFilter = (setMessage, setTime, setFilter, setVideo, setDime, setLeftCorner, setRes, time_, data) => {
     if (typeof data[0] === 'string') {
         setMessage('Filter applying ...')
         if (data[0] === 'trim') {
@@ -25,17 +24,12 @@ export const handleReceiveFilter = (setMessage, setTime, setFilter, setVideo, se
             setFilter(data[0])
         }
         else if (data[0] === 'crop') {
-            console.log('Receive ', data)
             setDime([data[1], data[2]]);
             setLeftCorner([data[3], data[4]])
             setFilter(data[0])
         }
         else if (data[0] === 'resolution') {
             setRes([data[1], data[2]])
-            setFilter(data[0])
-        }
-        else if (data[0] === 'extention') {
-            setExt(data[1])
             setFilter(data[0])
         }
         else {

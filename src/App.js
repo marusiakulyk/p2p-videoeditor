@@ -41,7 +41,6 @@ export const App = () => {
   const [leftCorner, setLeftCorner] = useState([0, 0])
   const [filter, setFilter] = useState();
   const [res, setRes] = useState([1000, 1000]);
-  const [ext, setExt] = useState('mp4');
   const [error, setError] = useState();
 
   const [myId, setMyId] = useState('');
@@ -58,17 +57,14 @@ export const App = () => {
 
   const UseFilter = async (elem) => {
     ffmpeg.FS('writeFile', 'test.mp4', await fetchFile(video));
-    console.log('filter', filter)
-    console.log('dime', dime)
 
     setFilter(elem);
-    const args = effects(time, dime, leftCorner, res, ext)[elem];
+    const args = effects(time, dime, leftCorner, res)[elem];
     await ffmpeg.run(...args);
     setMessage('Complete transcoding');
-    let data = await ffmpeg.FS('readFile', `output.${ext}`);
+    let data = await ffmpeg.FS('readFile', `output.mp4`);
 
-    const type = `video/${ext}`;
-    let url = URL.createObjectURL(new Blob([data.buffer], {type: type}));
+    let url = URL.createObjectURL(new Blob([data.buffer], {type: 'video/mp4'}));
     setVideo(url);
     setTime(time_);
     setDime(dim);
@@ -86,11 +82,7 @@ export const App = () => {
   useEffect(() => {
     load();
 
-    const peer = new Peer('', {
-      host: 'localhost',
-      port: '9000',
-      path: '/myapp',
-    });
+    const peer = new Peer('', {});
 
     peer.on('open', (id) => {
       setMyId(id);
@@ -103,7 +95,7 @@ export const App = () => {
       })
 
       conn.on('data', (data) => {
-        handleReceiveFilter(setMessage, setTime, setFilter, setVideo, setDime, setLeftCorner, setRes, setExt, time_, data);
+        handleReceiveFilter(setMessage, setTime, setFilter, setVideo, setDime, setLeftCorner, setRes, time_, data);
       });
     });
   }, []);
@@ -242,39 +234,16 @@ export const App = () => {
         }}>1080p
         </Button>
       </ButtonGroup>
-      <ButtonGroup orientation='vertical' disableRipple fullWidth>
-        <h2>Extentions</h2>
-        <Button onClick={() => {
-          setMessage('Filter applying ...')
-          setExt('mkv')
-          setFilter('extention')
-          send('extention', 'mkv')
-        }}>mkv
-        </Button>
-        <Button onClick={() => {
-          setMessage('Filter applying ...')
-          setExt('mov')
-          setFilter('extention')
-          send('extention', 'mov')
-        }}>mov
-        </Button>        <Button onClick={() => {
-          setMessage('Filter applying ...')
-          setExt('mp4')
-          setFilter('extention')
-          send('extention', 'mp4')
-        }}>mp4
-        </Button>
-
-      </ButtonGroup>
-    </div>
+      <Button variant={'contained'} disableRipple fullWidth>
+      <a href={video} download/>
+      Download result
+      </Button>
+        </div>
   }
   const spinner = message !== 'Complete transcoding' ? <CircularProgress className='progress' /> : <></>;
 
   return ready && video ? (
-
-
     <div className="App">
-
       {Filters()}
       <div className='columnMain'>
         <div className='videoField'>
@@ -291,10 +260,8 @@ export const App = () => {
         {timeline(time_)}
       </div>
       {Resolutions()}
-
     </div>
-
-  )
+    )
     :
     (<div className='startScreen'>
       <div className='peerInfo'>
@@ -315,7 +282,6 @@ export const App = () => {
           <Button variant="contained" disableRipple>
             <input type="file" id='file' onChange={(e) => {
               const url2 = URL.createObjectURL(e.target.files[0])
-              console.log(dime, ' dimention')
               sendFile(e);
               setVideo(url2);
               setFilter('empty')
