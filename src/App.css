@@ -1,6 +1,6 @@
 body {
-  background: #0A1929;
-  color: #1976d2;
+  background: #d6e3ef;
+  color: #0a1929;
   font-family: 'Lucida Grande', sans-serif;
   margin: 0;
 }
@@ -22,24 +22,43 @@ h2 {
   text-align: center;
 }
 .react_time_range__time_range_container {
-  position: static;
   padding-top: 50px !important;
+  width: 86.5% !important;
   bottom: 0;
 }
+
 .react_time_range__track {
-  background-color: #1976d2 !important;
+  background-color: #0a1929 !important;
   opacity: 0.5;
 }
 .react_time_range__handle_marker {
-  background-color: #1976d2 !important;
+  background-color: #0a1929 !important;
 }
 .MuiOutlinedInput-root {
-  color: #1976d2 !important;
+  color: #0a1929 !important;
+}
+.MuiOutlinedInput-root {
+  color: #0a1929 !important;
 }
 
 .MuiOutlinedInput-notchedOutline {
-  border-color: #1976d2 !important;
+  border-color: #0a1929 !important;
 }
+
+.MuiButton-outlined {
+  color: #0a1929 !important;
+  border-color: #0a1929 !important;
+}
+.MuiButton-contained {
+  color: white !important;
+  background-color: #0a1929 !important;
+}
+
+.MuiButton-root.Mui-disabled {
+  color: #8896a4 !important;
+  border-color: #8896a4 !important;
+}
+
 
 .columnFilter {
   display: flex;
@@ -63,7 +82,7 @@ h2 {
   display: flex;
   flex-direction: column;
   width: 400px;
-  border-right: 1px solid #1976d2;
+  border-right: 1px solid #0a1929;
   padding: 8px;
 }
 
@@ -90,7 +109,6 @@ video::-webkit-media-controls-enclosure {
 }
 
 video::-webkit-media-controls-panel {
-  margin-top: 20px;
   background-image: linear-gradient(transparent, transparent) !important;
 }
 

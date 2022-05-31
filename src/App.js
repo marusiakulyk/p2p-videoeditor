@@ -11,6 +11,7 @@ import { Button, ButtonGroup, TextField, CircularProgress } from '@mui/material'
 let time_ = [new Date(0), new Date(0)];
 let dim = [0, 0];
 const ffmpeg = createFFmpeg({
+  corePath: "https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js",
   logger: (message) => {
     const regexDur = /time=(\d{2}):(\d{2}):(\d{2})\.(\d{2})/gm;
     const matchesDur = regexDur.exec(String(message.message));
@@ -64,20 +65,11 @@ export const App = () => {
     setMessage('Complete transcoding');
     let data = await ffmpeg.FS('readFile', `output.mp4`);
 
-    let url = URL.createObjectURL(new Blob([data.buffer], {type: 'video/mp4'}));
+    let url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
     setVideo(url);
     setTime(time_);
     setDime(dim);
   };
-
-  const metadataCollect = async () => {
-    ffmpeg.FS('writeFile', 'test.mp4', await fetchFile(video));
-    await ffmpeg.run('-i', 'test.mp4', '-vcodec', 'copy', 'output.mp4');
-    setMessage('Complete transcoding');
-    setTime(time_);
-    setDime(dim);
-    setRes(dim);
-  }
 
   useEffect(() => {
     load();
@@ -105,12 +97,7 @@ export const App = () => {
       initialRender.current = false;
     }
     else {
-      if (filter !== 'empty') {
-        UseFilter(filter)
-      }
-      else {
-        metadataCollect();
-      }
+      UseFilter(filter)
     }
   }, [filter]);
 
@@ -184,17 +171,21 @@ export const App = () => {
 
       <ButtonGroup orientation='vertical' disableRipple fullWidth>
         <h2>Sizes</h2>
-        <Button onClick={() => {
-          setMessage('Filter applying ...')
-          setFilter('trim')
-          send('trim', ...time)
-        }}>trim
+        <Button
+          disabled={time_[0] === time[0] && time_[1] === time[1]}
+          onClick={() => {
+            setMessage('Filter applying ...')
+            setFilter('trim')
+            send('trim', ...time)
+          }}>trim
         </Button>
-        <Button onClick={() => {
-          setMessage('Filter applying ...')
-          setFilter('crop')
-          send('crop', ...dime, ...leftCorner)
-        }}>crop
+        <Button
+          disabled={dim[0] === dime[0] && dim[1] === dime[1]}
+          onClick={() => {
+            setMessage('Filter applying ...')
+            setFilter('crop')
+            send('crop', ...dime, ...leftCorner)
+          }}>crop
         </Button>
         <div>
           <TextField className={'smallInput'} placeholder='width' onChange={(e) => setDime([e.target.value, dime[1]])} />
@@ -209,7 +200,7 @@ export const App = () => {
   };
 
   const Resolutions = () => {
-    return <div  className='columnFilter'>
+    return <div className='columnFilter'>
       <ButtonGroup orientation='vertical' disableRipple fullWidth>
         <h2>Resolutions</h2>
         <Button onClick={() => {
@@ -228,17 +219,17 @@ export const App = () => {
         </Button>
         <Button onClick={() => {
           setMessage('Filter applying ...')
-          setRes([1920,1080])
+          setRes([1920, 1080])
           setFilter('resolution')
           send('resolution', ...res)
         }}>1080p
         </Button>
       </ButtonGroup>
       <Button variant={'contained'} disableRipple fullWidth>
-      <a href={video} download/>
-      Download result
+        <a href={video} download />
+        Download result
       </Button>
-        </div>
+    </div>
   }
   const spinner = message !== 'Complete transcoding' ? <CircularProgress className='progress' /> : <></>;
 
@@ -248,9 +239,9 @@ export const App = () => {
       <div className='columnMain'>
         <div className='videoField'>
           {video && <video
-            controls
-            width="600"
-            height="400"
+            controls={true}
+            width={'600'}
+            height={'400'}
             src={video}
             id='video'
           >
@@ -261,7 +252,7 @@ export const App = () => {
       </div>
       {Resolutions()}
     </div>
-    )
+  )
     :
     (<div className='startScreen'>
       <div className='peerInfo'>
