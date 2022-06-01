@@ -193,8 +193,8 @@ export const App = () => {
           <TextField className={'smallInput'} placeholder='height' onChange={(e) => setDime([dime[0], e.target.value])} />
         </div>
         <div>
-          <TextField className={'smallInput'} placeholder='corner x' onChange={(e) => setLeftCorner([e.target.value, 0])} />
-          <TextField className={'smallInput'} placeholder='corner y' onChange={(e) => setLeftCorner([0, e.target.value])} />
+          <TextField className={'smallInput'} placeholder='corner x' onChange={(e) => setLeftCorner([e.target.value, leftCorner[1]])} />
+          <TextField className={'smallInput'} placeholder='corner y' onChange={(e) => setLeftCorner([leftCorner[0], e.target.value])} />
         </div>
       </ButtonGroup>
     </div>
